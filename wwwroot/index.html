@@ -1,0 +1,288 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+
+
+
+</head>
+<body>
+    <button id="CreateTaskButton">Create new Task</button>
+
+    <form class="createform" id="createform">
+        <div>
+            <label for="Name">Name:</label>
+            <input class="form-control" type="text" name="Name" />
+        </div>
+
+        <div>
+            <label for="Description">Descriprtion:</label>
+            <input class="form-control" type="text" name="Description" />
+        </div>
+
+        <div>
+            <label for="Status">Status:</label>
+            <select class="form-control" name="Status">
+                <option value="1">Created</option>
+                <option value="2">In progress</option>
+                <option value="3">Finished</option>
+            </select>
+        </div>
+
+        <div>
+            <button type="reset" id="closinButton1">Close</button>
+            <button type="submit" id="closinButton2">Create</button>
+        </div>
+
+    </form>
+
+    <form name="taskkForm">
+
+        <table>
+            <thead><tr><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            </tbody>
+        </table>
+
+    </form>
+
+    <script>
+        //flag
+        var flag = 0;
+        //для передачи Id в EditTaskk
+        var idd = 0;
+        //Кнопочки
+        function openCreateForm() {
+            document.getElementById("createform").style.display = "block";
+            document.getElementById("CreateTaskButton").style.display = "none";
+        }
+
+        function closeCreateForm() {
+            document.getElementById("createform").style.display = "none";
+            document.getElementById("CreateTaskButton").style.display = "block";
+        }
+
+        const openButton = document.getElementById("CreateTaskButton");
+        openButton.addEventListener("click", event => {
+            event.preventDefault();
+            openCreateForm();
+            flag = 0;
+        });
+
+        const closeButton1 = document.getElementById("closinButton1");
+        closeButton1.addEventListener("click", event => {
+            closeCreateForm();
+            document.getElementById(idd).style.background = "white";
+        });
+
+        const closeButton2 = document.getElementById("closinButton2");
+        closeButton2.addEventListener("click", closeCreateForm);
+
+        //Получение статуса по его Id
+        async function GetStatus(id) {
+            const response = await fetch("/api/Status/" + id, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const status = await response.json();
+                return status;
+            }
+        }
+
+        //Получение всех имеющихся в бд задач
+        async function GetTaskks() {
+            const response = await fetch("/api/Taskks", {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+
+            if (response.ok === true) {
+                const taskks = await response.json();
+
+                let rows = document.querySelector("tbody");
+                taskks.forEach(taskk => {
+                    rows.append(row(taskk));
+                });
+            }
+        }
+
+        //Получение одной задачи
+        async function GetTaskk(id) {
+            const response = await fetch("/api/Taskks/" + id, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const taskk = await response.json();
+                const form = document.forms["createform"];
+                
+                form.elements["Name"].value = taskk.name;
+                form.elements["Description"].value = taskk.description;
+                form.elements["Status"].value = taskk.status_id;
+            }
+        }
+
+        // Добавление задачи
+        async function CreateTaskk(taskkName, taskkDescription, stts) {
+
+            const response = await fetch("api/Taskks", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    Name: taskkName,
+                    Description: taskkDescription,
+                    status_id: parseInt(stts, 10)
+                })
+            });
+
+            if (response.ok === true) {
+                const task = await response.json();
+                document.querySelector("tbody").append(row(task));
+            }
+        }
+        // Изменение задачи
+        async function EditTaskk(taskkName, taskkDescription, stts) {
+            const response = await fetch("api/Taskks", {
+                method: "PUT",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    Id: idd,
+                    Name: taskkName,
+                    Description: taskkDescription,
+                    status_id: parseInt(stts, 10)
+                })
+            });
+            document.getElementById(idd).style.background = "white";
+            if (response.ok === true) {
+                const taskk = await response.json();
+                document.getElementById(taskk.id).replaceWith(row(taskk));
+            }
+        }
+
+        // Удаление задачи
+        async function DeleteTaskk(id) {
+            const response = await fetch("/api/Taskks/" + id, {
+                method: "DELETE",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const taskk = await response.json();
+                document.getElementById(taskk.id).remove();
+            }
+        }
+
+        // создание строки для таблицы
+        function row(taskk) {
+
+            const tr = document.createElement("tr");
+            tr.id = taskk.id;
+
+            const nameTd = document.createElement("td");
+            nameTd.append(taskk.name);
+            tr.append(nameTd);
+
+            const descriptionTd = document.createElement("td");
+            descriptionTd.append(taskk.description);
+            tr.append(descriptionTd);
+
+            const statusTd = document.createElement("td");
+            const str = GetStatus(taskk.status_id);
+            str.then(function (result) {
+                statusTd.append(result.status);
+            });
+            tr.append(statusTd);
+
+            const actTd = document.createElement("td");
+
+            const editButton = document.createElement("button");
+            editButton.append(" Edit ");
+
+            editButton.addEventListener("click", event => {
+                const tr = document.getElementById(taskk.id);
+                tr.style.background = "red";
+
+                event.preventDefault();
+                openCreateForm();
+                GetTaskk(taskk.id);
+                flag = 1;
+            });
+
+            actTd.append(editButton);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.append("Delete");
+
+            deleteButton.addEventListener("click", event => {
+
+                event.preventDefault();
+                DeleteTaskk(taskk.id);
+            });
+
+            actTd.append(deleteButton);
+            actTd.style.display = "none";
+            tr.append(actTd);
+
+            //логика выделения строки                                                    !!!пропиши миссклики!!!
+            tr.addEventListener("click", event => {
+                event.preventDefault();
+
+                if (tr.lastElementChild.style.display != "block") {
+                    tr.lastElementChild.style.display = "block";
+                    idd = taskk.id;
+                }
+                else {
+                    tr.lastElementChild.style.display = "none";
+                }
+            });
+            return tr;
+        }
+
+        //отправка формы
+        const CrForm = document.forms[0];
+        CrForm.addEventListener("submit", event => {
+            event.preventDefault();
+
+            var nameEl = CrForm.elements["Name"];// as HTMLInputElement;
+            var name = nameEl.value;
+
+            var descrEl = CrForm.elements["Description"];// as HTMLInputElement;
+            var descr = descrEl.value;
+
+            var sttsEl = CrForm.elements["Status"];// as HTMLInputElement;
+            var stts = sttsEl.value;
+            
+            if (flag == 1) {
+                EditTaskk(name, descr, stts);
+                CrForm.reset();
+            }
+            else {
+                CreateTaskk(name, descr, stts);
+                CrForm.reset();
+            }
+        });
+
+        GetTaskks();
+    </script>
+
+
+</body>
+</html>
+
+<style>
+    .createform {
+        display: none;
+        width: 400px;
+        height: 250px;
+        border: double;
+    }
+
+    .form-control {
+        width: 100px;
+        padding: 7px;
+        margin: 5px 0 22px 0;
+        border: medium;
+        background: #f1f1f1;
+    }
+</style>
